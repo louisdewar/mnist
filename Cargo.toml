@@ -1,0 +1,12 @@
+[package]
+name = "mnist"
+version = "0.1.0"
+authors = ["Louis de Wardt <contact@louis.dewardt.uk>"]
+
+[dependencies]
+network = { path = "../network" }
+mnist = "0.4.0"
+rand = "0.6"
+
+[profile.release]
+debug = true
