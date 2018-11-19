@@ -2,8 +2,6 @@ extern crate mnist;
 extern crate network;
 extern crate rand;
 
-use rand::distributions::Uniform;
-use rand::prelude::*;
 use rand::seq::SliceRandom;
 
 use mnist::{Mnist, MnistBuilder};
@@ -29,7 +27,6 @@ fn main() {
     let test_images = normalized_tst
         .chunks(MNIST_ROWS * MNIST_COLS)
         .enumerate()
-        // .take(500)
         .map(|(i, image)| (image.to_vec(), result_to_output_layer(tst_lbl[i])))
         .collect::<Vec<_>>();
 
@@ -58,30 +55,20 @@ fn main() {
         "Correctly identified {}/{} ({}%)",
         before_n_correct,
         test_images.len(),
-        (before_n_correct * 100) as f64 / test_images.len() as f64
+        f64::from(before_n_correct * 100) / test_images.len() as f64
     );
 
     let mut rng = rand::thread_rng();
-
-    // for i in 0..100 {
-    // Pick random images indices
-    // let indices = between.sample_iter(&mut rng).take(BATCH_SIZE);
-
-    // Give images as training data
-    // let training_data = indices
-    //     .into_iter()
-    //     .map(|i| (images[i].to_vec(), result_to_output_layer(trn_lbl[i])))
-    //     .collect::<Vec<_>>();
 
     images.shuffle(&mut rng);
 
     use std::time::Instant;
     let start = Instant::now();
-    network.batch_train(images.clone(), 500, BATCH_SIZE, 0.5, Some(&test_images));
+
+    network.batch_train(images.clone(), 50, BATCH_SIZE, 0.5, Some(&test_images));
 
     println!("Took {}s to batch train", start.elapsed().as_secs());
 
-    // if i % 1 == 0 {
     println!("{}", network.examine_error(test_images.clone()));
 
     let mut n_correct = 0;
@@ -93,27 +80,16 @@ fn main() {
 
         assert!(tst_lbl[i] == find_index_of_max(desired_output) as u8);
 
-        // println!(
-        //     "{}     Network gave: {}, expected: {}",
-        //     if number as u8 == tst_lbl[i] { "✅" } else { "❌" },
-        //     number,
-        //     tst_lbl[i]
-        // );
-
         n_correct += if number as u8 == tst_lbl[i] { 1 } else { 0 };
-
-        // let max_desired
     }
 
     println!(
         "Correctly identified {}/{} ({}% - +{}%)",
         n_correct,
         test_images.len(),
-        (n_correct * 100) as f64 / test_images.len() as f64,
-        (n_correct * 100) as f64 / test_images.len() as f64 - (before_n_correct * 100) as f64 / test_images.len() as f64
+        f64::from(n_correct * 100) / test_images.len() as f64,
+        f64::from(n_correct * 100) / test_images.len() as f64 - f64::from(before_n_correct * 100) / test_images.len() as f64
     );
-    // }
-    // }
 }
 
 fn find_index_of_max(a: Vec<f64>) -> usize {
@@ -154,12 +130,12 @@ fn setup_mnist() -> (Vec<f64>, Vec<u8>, Vec<f64>, Vec<u8>) {
 
     let normalized_train = trn_img
         .iter()
-        .map(|x| *x as f64 / 255.0)
+        .map(|x| f64::from(*x) / 255.0)
         .collect::<Vec<f64>>();
 
     let normalized_test = tst_img
         .iter()
-        .map(|x| *x as f64 / 255.0)
+        .map(|x| f64::from(*x) / 255.0)
         .collect::<Vec<f64>>();
 
     (normalized_train, trn_lbl, normalized_test, tst_lbl)
