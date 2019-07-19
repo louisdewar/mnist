@@ -1,9 +1,6 @@
-extern crate mnist;
-extern crate network;
-extern crate rand;
+use rand;
 #[macro_use]
 extern crate clap;
-extern crate serde_json;
 
 use std::fs::File;
 
