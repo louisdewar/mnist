@@ -21,6 +21,9 @@ args:
     - dynamic_learn_rate:
         short: d
         long: dynamic_learn_rate
+    - save:
+        short: s
+        long: save
     - verbose:
         short: v
         help: Sets the level of verbosity

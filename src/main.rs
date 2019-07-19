@@ -3,6 +3,11 @@ extern crate network;
 extern crate rand;
 #[macro_use]
 extern crate clap;
+extern crate serde_json;
+
+use std::fs::File;
+
+use serde_json::{from_reader, to_writer};
 
 use rand::seq::SliceRandom;
 
@@ -18,9 +23,10 @@ fn main() {
     let matches = clap::App::from_yaml(yaml).get_matches();
 
     let verbose_mode = matches.is_present("verbose");
+    let should_save = matches.is_present("save");
     let dynamic_learn_rate = matches.is_present("dynamic_learn_rate");
     let epochs = matches.value_of("epochs").map(|v| v.parse::<usize>().expect("Epoch was not in valid format")).unwrap_or(50);
-    let mut batch_size = matches.value_of("batch_size").map(|v| v.parse::<usize>().expect("Batch size was not in valid format")).unwrap_or(10);
+    let batch_size = matches.value_of("batch_size").map(|v| v.parse::<usize>().expect("Batch size was not in valid format")).unwrap_or(10);
     let mut learn_rate = matches.value_of("learn_rate").map(|v| v.parse::<f64>().expect("Learn rate was not in valid format")).unwrap_or(0.5);
 
     let (normalized, trn_lbl, normalized_tst, tst_lbl) = setup_mnist();
@@ -37,7 +43,13 @@ fn main() {
         .map(|(i, image)| (image.to_vec(), result_to_output_layer(tst_lbl[i])))
         .collect::<Vec<_>>();
 
-    let mut network = Network::generate_random(vec![MNIST_ROWS * MNIST_COLS, 30, 10]);
+
+
+    let mut network =
+        File::open("network.json").map(|f| from_reader(f).expect("network.json file invalid, try deleting it.")).unwrap_or_else(|_| {
+            println!("No network.json file, creating a new network");
+            Network::generate_random(vec![MNIST_ROWS * MNIST_COLS, 30, 10])
+        });
 
     let mut before_n_correct = 0;
 
@@ -137,6 +149,11 @@ fn main() {
         );
 
         println!("Wrong statistics: {}", incorrect.iter().enumerate().map(|(i, incorrect)| format!("{} => {} times\n", i, incorrect)).collect::<String>())
+    }
+
+    if should_save {
+        let f = File::create("network.json").expect("Couldn't save file");
+        to_writer(f, &network).expect("Couldn't write network file");
     }
 }
 
