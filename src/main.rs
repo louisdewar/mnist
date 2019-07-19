@@ -25,9 +25,24 @@ fn main() {
     let verbose_mode = matches.is_present("verbose");
     let should_save = matches.is_present("save");
     let dynamic_learn_rate = matches.is_present("dynamic_learn_rate");
-    let epochs = matches.value_of("epochs").map(|v| v.parse::<usize>().expect("Epoch was not in valid format")).unwrap_or(50);
-    let batch_size = matches.value_of("batch_size").map(|v| v.parse::<usize>().expect("Batch size was not in valid format")).unwrap_or(10);
-    let mut learn_rate = matches.value_of("learn_rate").map(|v| v.parse::<f64>().expect("Learn rate was not in valid format")).unwrap_or(0.5);
+    let epochs = matches
+        .value_of("epochs")
+        .map(|v| v.parse::<usize>().expect("Epoch was not in valid format"))
+        .unwrap_or(50);
+    let batch_size = matches
+        .value_of("batch_size")
+        .map(|v| {
+            v.parse::<usize>()
+                .expect("Batch size was not in valid format")
+        })
+        .unwrap_or(10);
+    let mut learn_rate = matches
+        .value_of("learn_rate")
+        .map(|v| {
+            v.parse::<f64>()
+                .expect("Learn rate was not in valid format")
+        })
+        .unwrap_or(0.5);
 
     let (normalized, trn_lbl, normalized_tst, tst_lbl) = setup_mnist();
 
@@ -43,10 +58,9 @@ fn main() {
         .map(|(i, image)| (image.to_vec(), result_to_output_layer(tst_lbl[i])))
         .collect::<Vec<_>>();
 
-
-
-    let mut network =
-        File::open("network.json").map(|f| from_reader(f).expect("network.json file invalid, try deleting it.")).unwrap_or_else(|_| {
+    let mut network = File::open("network.json")
+        .map(|f| from_reader(f).expect("network.json file invalid, try deleting it."))
+        .unwrap_or_else(|_| {
             println!("No network.json file, creating a new network");
             Network::generate_random(vec![MNIST_ROWS * MNIST_COLS, 30, 10])
         });
@@ -81,7 +95,6 @@ fn main() {
         );
     }
 
-
     let mut rng = rand::thread_rng();
 
     images.shuffle(&mut rng);
@@ -97,7 +110,13 @@ fn main() {
         if i % 5 == 0 {
             let error = network.examine_error(test_images.clone());
             let delta = error - last_error;
-            println!("Epoch {}, error: {} ({:>+02.3}%) - lr {:.5}", i, error, delta * 100.0 / last_error, learn_rate);
+            println!(
+                "Epoch {}, error: {} ({:>+02.3}%) - lr {:.5}",
+                i,
+                error,
+                delta * 100.0 / last_error,
+                learn_rate
+            );
 
             if dynamic_learn_rate {
                 // If error has increased
@@ -136,7 +155,6 @@ fn main() {
             incorrect_guesses[number] += 1;
             incorrect[tst_lbl[i] as usize] += 1;
         };
-
     }
 
     if verbose_mode {
@@ -145,10 +163,18 @@ fn main() {
             n_correct,
             test_images.len(),
             f64::from(n_correct * 100) / test_images.len() as f64,
-            f64::from(n_correct * 100) / test_images.len() as f64 - f64::from(before_n_correct * 100) / test_images.len() as f64
+            f64::from(n_correct * 100) / test_images.len() as f64
+                - f64::from(before_n_correct * 100) / test_images.len() as f64
         );
 
-        println!("Wrong statistics: {}", incorrect.iter().enumerate().map(|(i, incorrect)| format!("{} => {} times\n", i, incorrect)).collect::<String>())
+        println!(
+            "Wrong statistics: {}",
+            incorrect
+                .iter()
+                .enumerate()
+                .map(|(i, incorrect)| format!("{} => {} times\n", i, incorrect))
+                .collect::<String>()
+        )
     }
 
     if should_save {
