@@ -1,5 +1,5 @@
 [package]
-name = "mnist"
+name = "mnist_trainer"
 version = "0.1.0"
 authors = ["Louis de Wardt <contact@louis.dewardt.uk>"]
 
@@ -7,6 +7,4 @@ authors = ["Louis de Wardt <contact@louis.dewardt.uk>"]
 network = { path = "../network" }
 mnist = "0.4.0"
 rand = "0.6"
-
-[profile.release]
-debug = true
+clap = {version = "2.33", features = ["yaml"]}

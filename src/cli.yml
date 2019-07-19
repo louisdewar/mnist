@@ -1,0 +1,26 @@
+name: mnist trainer
+version: "1.0"
+author: Louis de Wardt
+args:
+    - layers:
+        short: l
+        long: layers
+        takes_value: true
+    - epochs:
+        short: e
+        long: epochs
+        takes_value: true
+    - batch_size:
+        short: b
+        long: batch_size
+        takes_value: true
+    - learn_rate:
+        short: l
+        long: learn_rate
+        takes_value: true
+    - dynamic_learn_rate:
+        short: d
+        long: dynamic_learn_rate
+    - verbose:
+        short: v
+        help: Sets the level of verbosity

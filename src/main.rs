@@ -1,6 +1,8 @@
 extern crate mnist;
 extern crate network;
 extern crate rand;
+#[macro_use]
+extern crate clap;
 
 use rand::seq::SliceRandom;
 
@@ -11,10 +13,15 @@ static MNIST_ROWS: usize = 28;
 static MNIST_COLS: usize = 28;
 static MNIST_TRAINING_DATA_SIZE: usize = 50_000;
 
-static BATCH_SIZE: usize = 10;
-
 fn main() {
-    println!("Hello, world!");
+    let yaml = load_yaml!("cli.yml");
+    let matches = clap::App::from_yaml(yaml).get_matches();
+
+    let verbose_mode = matches.is_present("verbose");
+    let dynamic_learn_rate = matches.is_present("dynamic_learn_rate");
+    let epochs = matches.value_of("epochs").map(|v| v.parse::<usize>().expect("Epoch was not in valid format")).unwrap_or(50);
+    let mut batch_size = matches.value_of("batch_size").map(|v| v.parse::<usize>().expect("Batch size was not in valid format")).unwrap_or(10);
+    let mut learn_rate = matches.value_of("learn_rate").map(|v| v.parse::<f64>().expect("Learn rate was not in valid format")).unwrap_or(0.5);
 
     let (normalized, trn_lbl, normalized_tst, tst_lbl) = setup_mnist();
 
@@ -41,22 +48,27 @@ fn main() {
 
         assert!(tst_lbl[i] == find_index_of_max(desired_output) as u8);
 
-        println!(
-            "{}     Network gave: {}, expected: {}",
-            if number as u8 == tst_lbl[i] { "✅" } else { "❌" },
-            number,
-            tst_lbl[i]
-        );
+        // if verbose_mode {
+        //     println!(
+        //         "{}     Network gave: {}, expected: {}",
+        //         if number as u8 == tst_lbl[i] { "✅" } else { "❌" },
+        //         number,
+        //         tst_lbl[i]
+        //     );
+        // }
 
         before_n_correct += if number as u8 == tst_lbl[i] { 1 } else { 0 };
     }
 
-    println!(
-        "Correctly identified {}/{} ({}%)",
-        before_n_correct,
-        test_images.len(),
-        f64::from(before_n_correct * 100) / test_images.len() as f64
-    );
+    if verbose_mode {
+        println!(
+            "Before training: correctly identified {}/{} ({}%)",
+            before_n_correct,
+            test_images.len(),
+            f64::from(before_n_correct * 100) / test_images.len() as f64
+        );
+    }
+
 
     let mut rng = rand::thread_rng();
 
@@ -65,13 +77,39 @@ fn main() {
     use std::time::Instant;
     let start = Instant::now();
 
-    network.batch_train(images.clone(), 50, BATCH_SIZE, 0.5, Some(&test_images));
+    let mut last_error = network.examine_error(test_images.clone());
 
-    println!("Took {}s to batch train", start.elapsed().as_secs());
+    for i in 0..epochs {
+        network.batch_train_iteration(&images, batch_size, learn_rate);
 
-    println!("{}", network.examine_error(test_images.clone()));
+        if i % 5 == 0 {
+            let error = network.examine_error(test_images.clone());
+            let delta = error - last_error;
+            println!("Epoch {}, error: {} ({:>+02.3}%) - lr {:.5}", i, error, delta * 100.0 / last_error, learn_rate);
+
+            if dynamic_learn_rate {
+                // If error has increased
+                if delta > 0.0 {
+                    learn_rate *= 0.99;
+                } else {
+                    learn_rate *= 1.01
+                }
+            }
+
+            last_error = error;
+        }
+    }
+
+    if verbose_mode {
+        println!("Took {}s to batch train", start.elapsed().as_secs());
+        println!("{}", network.examine_error(test_images.clone()));
+    }
 
     let mut n_correct = 0;
+
+    // The list of incorrect identifications indexed by the number
+    let mut incorrect = [0; 10];
+    let mut incorrect_guesses = [0; 10];
 
     for (i, (input, desired_output)) in test_images.clone().into_iter().enumerate() {
         let output = network.feed_forward(input);
@@ -80,16 +118,26 @@ fn main() {
 
         assert!(tst_lbl[i] == find_index_of_max(desired_output) as u8);
 
-        n_correct += if number as u8 == tst_lbl[i] { 1 } else { 0 };
+        if number as u8 == tst_lbl[i] {
+            n_correct += 1;
+        } else {
+            incorrect_guesses[number] += 1;
+            incorrect[tst_lbl[i] as usize] += 1;
+        };
+
     }
 
-    println!(
-        "Correctly identified {}/{} ({}% - +{}%)",
-        n_correct,
-        test_images.len(),
-        f64::from(n_correct * 100) / test_images.len() as f64,
-        f64::from(n_correct * 100) / test_images.len() as f64 - f64::from(before_n_correct * 100) / test_images.len() as f64
-    );
+    if verbose_mode {
+        println!(
+            "Correctly identified {}/{} ({}% - +{}%)",
+            n_correct,
+            test_images.len(),
+            f64::from(n_correct * 100) / test_images.len() as f64,
+            f64::from(n_correct * 100) / test_images.len() as f64 - f64::from(before_n_correct * 100) / test_images.len() as f64
+        );
+
+        println!("Wrong statistics: {}", incorrect.iter().enumerate().map(|(i, incorrect)| format!("{} => {} times\n", i, incorrect)).collect::<String>())
+    }
 }
 
 fn find_index_of_max(a: Vec<f64>) -> usize {
@@ -125,8 +173,6 @@ fn setup_mnist() -> (Vec<f64>, Vec<u8>, Vec<f64>, Vec<u8>) {
         .validation_set_length(10_000)
         .test_set_length(10_000)
         .finalize();
-
-    println!("The first label is: {}", trn_lbl[0]);
 
     let normalized_train = trn_img
         .iter()
